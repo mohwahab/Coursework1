@@ -155,7 +155,7 @@ void linear_regression(Data data, int presist_for){
 	sleep(presist_for);
 }
 
-/*
+
 void newtons_interpolation(Data data, double xi){
 
 	int n = data.size();
@@ -165,20 +165,71 @@ void newtons_interpolation(Data data, double xi){
 	vector<double> x = data.get_Xs();
 	vector<double> y = data.get_Ys();
 
+	//Fill 1st column of the table --> f(x0), f(x1), ..... f(xn-1)
 	for (int i = 0; i < n; i++) {
 		fdd[i][0] = y[i];
+		cout<<"fdd["<<i<<"][0] = "<<fdd[i][0]<<endl;
 	}
 
-	for (int var = 0; var < max; ++var) {
+	//Calculate the divided differences and store the  values in table --> f[xi,xj] = f(xi)-f(xj)/xi-xj  &  f[xi,xj,xk] = f[xi,xj] - f[xj,xk] / xi-xk
+	for (int j = 1; j < n; j++) {
+
+		for (int i = 0; i < n-j; i++) {
+			fdd[i][j] = (fdd[i+1][j-1] - fdd[i][j-1]) / (x[i+j] - x[i]); //f[x1,x0] = f(x1) - f(x0)/x1-x0  --- 2D-Array Notation ---> f[0][1] = f[1][0] - f[0][0] / x[1]-x[0]
+			cout<<"fdd["<<i<<"]["<<j<<"] = "<<fdd[i][j]<<endl;
+		}
 
 	}
+	//After this loop we should have the table filled so that we can calculate all the coefficients
+
+	double xterm = 1; 	//Polynomial terms (x-x0)(x-x1) ..... (x-xn-1)
+	double yout = 0; 	//To hold the output value
+	double yint[n];   	//Array to hold the terms of polynomial equation
+	double ea[n];		//Error array, to hold error in each term
+
+	yint[0] = fdd[0][0]; //y(x0) = f(x0)
+
+	std::ostringstream yint_stream;
+	yint_stream << "" << yint[0];
+
+	string equation = yint_stream.str();
+	//string xterm_str("");
+
+	std::ostringstream xterm_stream, equation_stream;
+
+	for (int order = 1; order < n; order++) {
+		xterm = xterm * (xi - x[order-1]);
+		xterm_stream << "*(x-" << x[order-1] << ")";
+		equation_stream << "+" << fdd[0][order] << xterm_stream.str();
+		yout = yint[order-1] + fdd[0][order] * xterm;
+		ea[order-1] = yout - yint[order-1];
+		yint[order] = yout;
+		//cout<<"yint["<<order<<"] = "<<yint[order]<<endl;
+	}
+
+	equation += equation_stream.str();
+	cout << "Y[x] = " << equation << endl;
+	cout << "Y["<<xi<<"] = " << yout << endl;
+
+	string title = "Newton's Interpolation";
+	Gnuplot gnu_plot = Gnuplot("lines");
+	gnu_plot.set_style("points");
+	gnu_plot.plot_xy(x, y, title);
+
+	gnu_plot.set_style("lines");
+	gnu_plot.set_xlabel("Y-axis");
+	gnu_plot.set_ylabel("X-axis");
+	gnu_plot.plot_equation(equation, equation/*title*/);
+
+	sleep(30);
 }
-*/
+
 
 int main(int argc, char *argv[]) {
 
 	Data data = load_data(argv[1]);
-	linear_regression(data, atoi(argv[2]));
+	//linear_regression(data, atoi(argv[2]));
+	newtons_interpolation(data, atof(argv[2]));
 
 	return 0;
 }

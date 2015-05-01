@@ -26,6 +26,7 @@ void Data::add_point(double x, double y){
 	this->xS.push_back(x);
 	this->yS.push_back(y);
 	this->points.push_back(point);
+	point_count++;
 }
 
 Point Data::get_point(){
