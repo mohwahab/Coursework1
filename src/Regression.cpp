@@ -6,23 +6,75 @@
 // Description : Hello World in C++, Ansi-style
 //============================================================================
 
-#include <stdlib.h> //For atof
+#include <stdlib.h> 	// std::atof
+#include <cmath>        // std::abs
+#include <algorithm>	// std::count
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <sstream>
 
 #include "Data.h"
+#include "util/Matrix.h"
 #include "gnuplot_i.hpp"
 
 using namespace std;
+
+Matrix<double>* load_data(char* filename, vector<double>& b){
+
+
+	int delimiter_index = 0;
+	int row = 0, col = 0;
+	int size = -2;
+	char delimiter = ',';
+	double row_elem;
+
+	ifstream file (filename);
+	string line, sub_str, a_row, b_row;
+	Matrix<double>* a_ptr;
+	cout << "***** Going to load Matrix data from file ["<<filename<<"] *****"<< endl; // prints Hello World!!!
+
+		while (getline(file, line))
+		{
+
+			 delimiter_index = line.find(delimiter);
+			 a_row = line.substr(0, delimiter_index);
+			 b_row = line.substr(delimiter_index+1);
+
+
+			 if(size == -2){
+
+				 size = count(a_row.begin(), a_row.end(), ' ')+1;
+				 a_ptr = new Matrix<double>(size, size);
+
+			 }
+
+			 b.push_back(atof(b_row.c_str()));
+
+			 istringstream a_row_ss(a_row);
+
+			 col = 0;
+
+			 while(a_row_ss >> row_elem){
+
+				 (*a_ptr)(row, col) =  row_elem;
+				 col++;
+			 }
+
+			 row++;
+
+		}
+		cout<<"ROW COUNT = "<<(a_ptr->get_rows())<<" COL COUNT = "<<(a_ptr->get_cols())<<endl;
+		file.close();
+		return a_ptr;
+}
 
 Data load_data(char* filename){
 
 	double x, y;
 	ifstream file (filename);
 	string line;
-	string input;
+	//string input;
 	Data data;
 
 	cout << "***** Going to load data from file ["<<filename<<"] *****"<< endl; // prints Hello World!!!
@@ -38,7 +90,7 @@ Data load_data(char* filename){
 	     */
 
 	     if (!(ss >> x >> y)) { // error
-	    	 cout << "Invalid data format: [" << line << "]" <<endl;
+	    	 cerr << "Invalid data format: [" << line << "]" <<endl;
 	    	 break;
 	     }
 
@@ -225,11 +277,194 @@ void newtons_interpolation(Data data, double xi){
 }
 
 
+/************************** Gauss Elemination (Page 264)*****************************/
+
+void pivot (Matrix<double>& a, vector<double>& b, vector<double>& s, int n, int k){
+
+	int p = k;
+	double dummy;
+	double big = abs(a(k,k)/s[k]);
+
+	for (int ii = k+1; ii <= n; ii++) {
+
+		dummy = abs(a(ii,k)/s[ii]);
+
+		if(dummy > big){
+			big = dummy;
+			p = ii;
+		}
+	}
+
+	if(p != k){
+
+		for( int jj = k; jj <= n; jj++){
+			dummy = a(p,jj);
+			a(p,jj) = a(k,jj);
+			a(k,jj) = dummy;
+		}
+
+		dummy = b[p];
+		b[p] = b[k];
+		b[k]= dummy;
+		dummy = s[p];
+		s[p] = s[k];
+		s[k] = dummy;
+	}
+}
+
+int eliminate(Matrix<double>& a, vector<double>& s, int n, vector<double>& b, double tol){
+
+	int er = 0;
+
+	double factor = 1;
+
+
+
+	for (int k = 0; k <= n; k++) {
+
+		pivot(a, b, s, n, k);
+		cout<<"********* PIVOT["<<k<<"]**********"<<endl;
+		for (int i=0; i<a.get_rows(); i++) {
+				for (int j=0; j<a.get_cols(); j++) {
+				  cout << a(i,j) << " ";
+				}
+				cout<<","<<b[i]<<endl;;
+			  }
+
+		cout<<"*******************"<<endl;
+
+		if(abs(a(k,k)/s[k]) < tol){
+			er = -1;
+			return er;
+		}
+
+		for (int i = k+1; i <= n; i++) {
+
+				factor = a(i,k)/a(k,k);
+
+				for (int j = k; j <= n; j++) {
+					cout<<"HERE3-7"<<endl;
+					a(i,j) = a(i,j) - factor*a(k,j);
+					cout<<"HERE3-8 j= "<<j<<endl;
+				}
+
+				b[i] = b[i] - factor * b[k];
+				cout<<">>>>>>>>>>>>>>>> HERE3-9 i= "<<i<<" k= "<<k<<endl;
+		}
+	}
+
+
+	if(abs(a(n,n)/s[n]) < tol){
+		er = -1;
+	}
+
+	return er;
+}
+
+/*vector<double>*/ void substitute (Matrix<double> a, int n, vector<double> b,vector<double>& x){
+
+	cout<<"*******************"<<endl;
+	for (int i=0; i<a.get_rows(); i++) {
+		    for (int j=0; j<a.get_cols(); j++) {
+		      cout << a(i,j) << " ";
+		    }
+		    cout<<","<<b[i]<<endl;;
+		  }
+
+	cout<<"*******************"<<endl;
+	int sum = 0;
+
+	//vector<double> x;
+	cout<<"HERE4-1 >>> b["<<n<<"] = "<<b[n]<<endl;
+	cout<<"HERE4-1 >>> a["<<n<<"] = "<<a(n,n)<<endl;
+	cout<<"HERE4-1 >>> b/a = "<<a(n,n)<<endl;
+	//x.push_back(b[n]/a(n,n));
+	x[n] = b[n]/a(n,n);
+	cout<<"HERE4-1 >>> x["<<n<<"] = "<<x[n]<<endl;
+	for(int i = n - 1; i >= 1; --i){
+
+		sum = 0;
+		for(int j = i+1; j <= n; ++j){
+
+			sum += a(i,j) * x[j];
+			cout<<"HERE4-4 >>> x["<<j<<"] = "<<x[j]<<endl;
+			cout<<"HERE4-4 j= "<<j<<endl;
+		}
+		cout<<"HERE4-5"<<endl;
+		//x[n] = (b[n] - sum) / a(n,n);
+		x[i] = (b[i] - sum) / a(i,i);
+
+		cout<<">>>>>>>>>>>>>>>>>>>> HERE4-6 i= "<<i<<endl;
+	}
+	//x[0] = (b[3] - sum) / a(0,0);
+	cout<<"SUBISTIUTE DONE"<<endl;
+	//return x;
+}
+
+
+
+/*vector<double>*/ void gauss_elemination(Matrix<double> a, vector<double> b, int n, vector<double>& x, double tol = 0){
+
+	vector<double> s(n+1,0); //Scale vector
+	//vector<double> x;
+	cout<<"HERE1"<<endl;
+	for (int i = 0; i <= n; i++) {
+
+		s[i] = abs(a(i,1));
+
+		for (int j = 1; j <= n; j++) {
+			cout<<"----------- i = "<<i<<" j = "<<j<<" a = "<<a(i,j)<<" s = "<<s[i]<<endl;
+			if(abs(a(i,j)) > s[i]) {
+
+				s[i] = abs(a(i,j));
+
+			}
+		}
+	}
+
+	for(int k=0; k< s.size(); k++){
+		cout<<">>>>>> s= "<<s[k]<<endl;
+	}
+
+
+	int er = eliminate(a, s, n, b, tol); //if er == -1 --> Singular matrix has been detected
+
+	if( er != -1){
+		/*x = */substitute(a, n, b, x);
+
+	}else{
+		cerr<<"Singular matrix has been detected, will exit"<<endl;
+	}
+	for(int k=0; k<= n; k++){
+			cout<<">>>>>> X = "<<x[k]<<endl;
+		}
+	//return x;
+}
+
+/**********************************************************************/
+
 int main(int argc, char *argv[]) {
 
-	Data data = load_data(argv[1]);
+	//Data data = load_data(argv[1]);
 	//linear_regression(data, atoi(argv[2]));
-	newtons_interpolation(data, atof(argv[2]));
+	//newtons_interpolation(data, atof(argv[2]));
+
+	vector<double> B;
+	Matrix<double>* A = load_data(argv[1], B);
+
+	for (int i=0; i<A->get_rows(); i++) {
+	    for (int j=0; j<A->get_cols(); j++) {
+	      cout << (*A)(i,j) << " ";
+	    }
+	    cout <<","<<B[i]<< endl;
+	  }
+
+	vector<double> x(B.size(), 0);
+	gauss_elemination((*A), B, B.size()-1, x);
+	for(int k=0; k< B.size(); k++){
+		cout<<"X"<<k<<" = "<<x[k]<<endl;
+	}
+	delete A;
 
 	return 0;
 }
